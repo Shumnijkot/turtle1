@@ -1,5 +1,110 @@
 const game = new Phaser.Game(640, 480, Phaser.AUTO);
 
+class Weapon {
+    constructor(gameState){
+        this.gameState = gameState;
+        this.game = gameState.game;
+        this.map = gameState.map;
+        this.layer = gameState.layer;
+        
+        this.group = null;
+        this.projectile = null;
+        
+        // Weapon specific properties:
+        this.isFiring = false;
+        
+        this.damage = {
+            type: null,
+            points: 1
+        };
+        
+        this.bulletTime = 0;
+        this.props = {fireAngle : 0};
+    }
+}
+
+class WeaponLaser extends Weapon{
+    constructor(gameState){
+        super(gameState);
+        
+        this.props.fireAngle = 45;
+        this.speed = 10;
+        
+        this.group = this.game.add.group();
+        this.group.physicsBodyType = Phaser.Physics.ARCADE;
+        this.group.createMultiple(100, 'lazer');
+        this.group.KILL_WORLD_BOUNDS = true;
+        this.group.setAll('checkWorldBounds', true);
+        
+        this.projectile = null;
+        
+        this.damage.points = 30;
+        
+        console.log('The lasors are charged!');
+        
+        return this;
+    }
+    static preload(gameState){
+        gameState.load.atlas('lazer', 'assets/img/laser.png', 'assets/laser.json');
+    }
+    
+    inflictDamage(laser, target){
+        target.getDamage(30);
+    }
+    
+    charge(owner){
+        if(owner && owner.flesh){
+            this.owner = owner;
+        }
+    }
+    
+    fire(direction){
+        let fireAngle = direction === 'right' ? this.props.fireAngle : 135;
+        
+        if (game.time.now > this.bulletTime)
+        {
+            //  Grab the first bullet we can from the pool
+            this.projectile = this.group.getFirstDead(true, this.owner.flesh.x, this.owner.flesh.y, 'lazer');
+
+            this.projectile.angle = fireAngle;
+            
+            this.projectile.animations.add('fire', frames, 60);
+            this.projectile.animations.frameName = 'frame02';
+            this.projectile.direction = direction;
+            this.projectile.scale.x = this.owner.flesh.scale.x;
+            
+            // Lazers start out with a width of 96 and expand over time
+            // lazer.crop(new Phaser.Rectangle(244-96, 0, 96, 2), true);
+            this.bulletTime = this.game.time.now + 250;
+        }
+        
+        console.log('Lasor casted to bring death!');
+    }
+    
+    killProjectile(){
+        this.projectile.kill();
+    }
+    
+    update(){
+        if(!this.projectile) return;
+        
+        let angleForX = this.props.fireAngle;
+        let angleForY = this.props.fireAngle; // 90-45;
+        let sinAngle = Math.sin(angleForX);
+        
+        this.projectile.x += (this.projectile.direction === 'right' ? 1 : -1) * this.speed*sinAngle;
+        this.projectile.y += this.speed*sinAngle; 
+
+//        let killTheLazer = this.lazer.overlap(this.layer);
+//        if(killTheLazer){
+//            this.lazer.kill();
+//            return;
+//        }
+
+        this.projectile.animations.next();
+    }
+}
+
 class AnimatedObject {
     constructor(gameState){
         this.gameState = gameState;
@@ -8,6 +113,9 @@ class AnimatedObject {
         this.fireButton = gameState.fireButton;
         this.map = gameState.map;
         this.layer = gameState.layer;
+        
+        // The sprite of the object:
+        this.flesh = null;
         
         // Jump and flying props:
         this.jumpTimer = 0;
@@ -37,147 +145,73 @@ class Turtle extends AnimatedObject {
         let gameCenterX = this.game.world.centerX;
         let gameCenterY = this.game.world.centerY;
         
-        this.theTurtle = this.game.add.sprite(gameCenterX, this.turtleInitialY, 'turtle');
-        this.theTurtle.anchor.setTo(0.5);
+        this.flesh = this.game.add.sprite(gameCenterX, this.turtleInitialY, 'turtle');
+        this.flesh.anchor.setTo(0.5);
         
         // set animations:
-        this.animLeft = this.theTurtle.animations.add('left', [0,1], 10, true);
-        this.animRight = this.theTurtle.animations.add('right', [8,7], 10, true);
-        this.animUpLeft = this.theTurtle.animations.add('up-left', [3,2], 10, true);
-        this.animUpRight = this.theTurtle.animations.add('up-right', [5,6], 10, true);
+        this.animLeft = this.flesh.animations.add('left', [0,1], 10, true);
+        this.animRight = this.flesh.animations.add('right', [8,7], 10, true);
+        this.animUpLeft = this.flesh.animations.add('up-left', [3,2], 10, true);
+        this.animUpRight = this.flesh.animations.add('up-right', [5,6], 10, true);
         
         
-        this.game.physics.enable(this.theTurtle);
-        this.theTurtle.body.collideWorldBounds = true;
-        this.theTurtle.body.gravity.y=0.01;
+        this.game.physics.enable(this.flesh);
+        this.flesh.body.collideWorldBounds = true;
+        this.flesh.body.gravity.y=0.01;
         
-        this.game.camera.follow(this.theTurtle, Phaser.Camera.FOLLOW_LOCKON, 0.1, 0.1);
-        this.chargeLaser();
+        this.game.camera.follow(this.flesh, Phaser.Camera.FOLLOW_LOCKON, 0.1, 0.1);
+        this.loadMahGuns();
         
         return this;
+    }
         
-    }
-    chargeLaser(){
-//        this.gameState.lasorLine = new Phaser.Line();
-
-        this.gameState.lazers = this.game.add.group();
-this.game.physics.enable(this.gameState.lazers);
-        console.log('Mah lasors are charged!');
-    }
-
-    fireLaser(direction){
-//        let angle = direction === 'right' ? 0.785398 : 2.35619;
-        let angle = direction === 'right' ? 45 : 135;
-//        this.gameState.lasorLine.fromAngle(this.theTurtle.x, this.theTurtle.y, angle, 500);
-        
-        
-        
-        if (game.time.now > this.bulletTime)
-        {
-            //  Grab the first bullet we can from the pool
-            this.lazer = this.gameState.lazers.getFirstDead(true, this.theTurtle.x, this.theTurtle.y, 'lazer');
-
-            this.lazer.angle = angle;
-            this.lazer.KILL_WORLD_BOUNDS = true;
-            this.lazer.animations.add('fire', frames, 60);
-            this.lazer.animations.frameName = 'frame02';
-
-            this.lazer.scale.x = this.theTurtle.scale.x;
-            //
-            ////  Lazers start out with a width of 96 and expand over time
-            // lazer.crop(new Phaser.Rectangle(244-96, 0, 96, 2), true);
-
-            this.bulletTime = game.time.now + 250;
-        }
-        
-        console.log('Lasor casted to bring death!');
-//        console.log(' ---- on :' + Phaser.Line.intersectsRectangle(this.gameState.lasorLine, this.layer));
-    }
-    
-    laserOff(){
-        this.gameState.lasorLine = null;
-        console.log('Lasor charged and ready again!');
-        this.chargeLaser();
-    }
-    
-    holdYourFire(){
-        this.weaponFiring = false;
-        this.laserOff();
-        console.log('No pew-pew!');
-    }
-    
-    fireWeapon(){
-        this.weaponFiring = true;
-        console.log('Pew-Pew!!');
-        this.fireLaser(this.facing);
-        setTimeout(this.holdYourFire.bind(this), 500);    
-    }
+    loadMahGuns(){
+        this.laser = this.gameState.laser;
+        this.laser.charge(this,{fireAngle: 45});
+    }    
     
     onFireButtonPressed(){
-        if(!this.weaponFiring){
-            this.fireWeapon();
-        }
-        else return;
+        console.log('Pew-Pew!!');
+        this.laser.fire(this.facing);
     }
     
     static preload(gameState){
         gameState.load.spritesheet('turtle', 'assets/img/turtle.png',68,68);
-        
-        
+                
         console.log('Setting laser');
     }
     
-    updateLaser(){
-//        var camDelta = game.camera.x - this.prevCamX;
-        if(!this.lazer) return;
-        
-        
-        let angle = 45;
-        this.lazer.x += (this.facing === 'right' ? 1 : -1) * 12*Math.sin(angle);
-        this.lazer.y += 12*Math.sin(angle);
-//        this.lazer.x += camDelta;
-//
-//        let killTheLazer = this.lazer.overlap(this.layer);
-//        if(killTheLazer){
-//            this.lazer.kill();
-//            return;
-//        }
-        console.log('Ive hit the floor!');
-        this.lazer.animations.next();
-    }
-    
     update(){
-        game.physics.arcade.collide(this.theTurtle, this.layer);
-        this.updateLaser();
-        
-        this.theTurtle.body.velocity.x = 0;
-        this.theTurtle.body.acceleration.y = 0;
+        game.physics.arcade.collide(this.flesh, this.layer);
+             
+        this.flesh.body.velocity.x = 0;
+        this.flesh.body.acceleration.y = 0;
         
         // constant flying (no animation needed):
-        if(this.theTurtle.body.y > this.turtleInitialY+30){
-            this.theTurtle.body.acceleration.y = 1;
-            this.theTurtle.body.velocity.y = -400;
+        if(this.flesh.body.y > this.turtleInitialY+30){
+            this.flesh.body.acceleration.y = 1;
+            this.flesh.body.velocity.y = -400;
         }
         
         // Left-Right handling:
         if(this.cursors.left.isDown){
-            this.theTurtle.body.velocity.x = -350;
+            this.flesh.body.velocity.x = -350;
             if(this.facing !== 'left'){
                 this.facing = 'left';
             }
-            this.theTurtle.play('left');
+            this.flesh.play('left');
         }
         else if(this.cursors.right.isDown){
-            this.theTurtle.body.velocity.x = 350;
+            this.flesh.body.velocity.x = 350;
             if(this.facing !== 'right'){
                 this.facing = 'right';
             }
-            this.theTurtle.play('right');
+            this.flesh.play('right');
         }
 
         if (this.cursors.up.isDown){
             if(game.time.now > this.jumpTimer && this.jumpTimes < this.jumpMaxTimes){
-                this.theTurtle.body.velocity.y = -650;
+                this.flesh.body.velocity.y = -650;
                 this.jumpTimer = game.time.now + 750;
                 this.jumpTimes +=1;
             }
@@ -187,18 +221,18 @@ this.game.physics.enable(this.gameState.lazers);
         }
 
         // Flying animation:
-        if(this.theTurtle.body.y < this.turtleInitialY-30){
+        if(this.flesh.body.y < this.turtleInitialY-30){
             if(this.facing ==='right'){
-                this.theTurtle.play('up-right');
+                this.flesh.play('up-right');
             }
             else if(this.facing === 'left'){
-                this.theTurtle.play('up-left');
+                this.flesh.play('up-left');
             }
         }
         
         if(!this.cursors.left.isDown && !this.cursors.right.isDown && !this.cursors.up.isDown){
-            this.theTurtle.animations.stop();
-            this.theTurtle.frame = 4;
+            this.flesh.animations.stop();
+            this.flesh.frame = 4;
         }
         
         if(this.fireButton.isDown){
@@ -216,15 +250,15 @@ class Rabbit extends AnimatedObject {
         delay = delay || 0;
         let movementSpeed = 1000 + Math.abs(((index%2)+1)*1500 - index%3*1000);
         
-        this.theRabbit = this.game.add.sprite(invokeX, invokeY, 'rabbit');
-        this.theRabbit.anchor.setTo(0.5);
-        this.game.physics.enable(this.theRabbit, Phaser.Physics.ARCADE);
-//        this.theRabbit.body.tilePadding = new Phaser.Point(68,68);
+        this.flesh = this.game.add.sprite(invokeX, invokeY, 'rabbit');
+        this.flesh.anchor.setTo(0.5);
+        this.game.physics.enable(this.flesh, Phaser.Physics.ARCADE);
+//        this.flesh.body.tilePadding = new Phaser.Point(68,68);
                 
-        this.theRabbit.body.bounce.set(0.6);
-        this.theRabbitTween = this.game.add.tween(this.theRabbit).from({x:invokeX-200}).to({x: invokeX+200}, movementSpeed, 'Linear', true, delay, -1, true);
+        this.flesh.body.bounce.set(0.6);
+        this.theRabbitTween = this.game.add.tween(this.flesh).from({x:invokeX-200}).to({x: invokeX+200}, movementSpeed, 'Linear', true, delay, -1, true);
         
-        this.theRabbit.body.collideWorldBounds = true;
+        this.flesh.body.collideWorldBounds = true;
         
         return this;
     }
@@ -236,38 +270,34 @@ class Rabbit extends AnimatedObject {
             this.health -= points;
             console.log('Auch! '+this.health);
             if(this.health <= 0){
-                this.theRabbit.destroy();
+                this.flesh.destroy();
                 this.killSelf();
             }
         }
     }
     update(){
-//        let isHitByLaser = Phaser.Line.intersectsRectangle(this.gameState.lasorLine, this.theRabbit);
+//        let isHitByLaser = Phaser.Line.intersectsRectangle(this.gameState.lasorLine, this.flesh);
 //        if(isHitByLaser){
 //            this.getDamage(3);
 //        }
         
-        this.game.physics.arcade.collide(this.theRabbit, this.layer);
+        this.game.physics.arcade.collide(this.flesh, this.layer);
     }
 }
 
 class GameState {
     preload(){
-        // Make turtle preload to add sprite to the scene:
+        // Make necessary preloads to add sprites to the scene:
         Turtle.preload(this);
         Rabbit.preload(this);
+        WeaponLaser.preload(this);
         
         this.load.image('background1', 'assets/img/background2.jpg');
-//        this.load.image('rabbit', 'assets/img/rabbit.png');
-        
-        this.load.image('turtleSprite', 'assets/img/turtle-sprite.png');
-        
+
         this.load.tilemap('map', 'assets/maps/level1-type2.csv', null, Phaser.Tilemap.TILED_CSV);
         this.load.image('ground_1x1', 'assets/img/ground1x1.png');
-        this.game.load.atlas('lazer', 'assets/img/laser.png', 'assets/laser.json');
-
-               
     }
+    
     create(){
         let gameCenterX = this.game.world.centerX;
         let gameCenterY = this.game.world.centerY;
@@ -289,6 +319,8 @@ class GameState {
         this.fireButton = game.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
         this.game.physics.startSystem(Phaser.Physics.P2JS);
         this.game.physics.arcade.gravity.y = 1400;
+        
+        this.laser = new WeaponLaser(this);
         
         // instantiate our turtle.
         // With "theTurtle" property as a Phaser object to manipulate:
@@ -317,9 +349,15 @@ class GameState {
     
     update(){
         // firing turtle update method:
+        this.laser.update();
         this.turtle.update();
         for(let i in this.enemies){
             this.enemies[i].update();
+            let overlaped = this.game.physics.arcade.overlap(this.laser.projectile, this.enemies[i].flesh, this.laser.inflictDamage, null, this)
+            if(overlaped){
+                console.log('we did');
+            }
+        
         }
 //        this.rabbit.update();
 
