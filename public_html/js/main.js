@@ -85,15 +85,21 @@ class WeaponLaser extends Weapon{
         this.projectile.kill();
     }
     
-    update(){
-        if(!this.projectile) return;
+    updateProjectile(projectile){
+        if(!projectile) return;
         
         let angleForX = this.props.fireAngle;
         let angleForY = this.props.fireAngle; // 90-45;
         let sinAngle = Math.sin(angleForX);
         
-        this.projectile.x += (this.projectile.direction === 'right' ? 1 : -1) * this.speed*sinAngle;
-        this.projectile.y += this.speed*sinAngle; 
+        projectile.x += (projectile.direction === 'right' ? 1 : -1) * this.speed*sinAngle;
+        projectile.y += this.speed*sinAngle; 
+        
+        projectile.animations.next();
+    }
+    
+    update(){
+          this.group.forEachAlive(this.updateProjectile, this);
 
 //        let killTheLazer = this.lazer.overlap(this.layer);
 //        if(killTheLazer){
@@ -101,7 +107,7 @@ class WeaponLaser extends Weapon{
 //            return;
 //        }
 
-        this.projectile.animations.next();
+        
     }
 }
 
