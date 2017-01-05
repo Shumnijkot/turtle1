@@ -31,6 +31,7 @@ class WeaponLaser extends Weapon{
         this.speed = 10;
         
         this.group = this.game.add.group();
+        this.group.enableBody = true;
         this.group.physicsBodyType = Phaser.Physics.ARCADE;
         this.group.createMultiple(100, 'lazer');
         this.group.KILL_WORLD_BOUNDS = true;
@@ -48,8 +49,10 @@ class WeaponLaser extends Weapon{
         gameState.load.atlas('lazer', 'assets/img/laser.png', 'assets/laser.json');
     }
     
-    inflictDamage(laser, target){
-        target.getDamage(30);
+    inflictDamage(){
+        console.log('Got ya!');
+        this.currentEnemy.getDamage(30);
+        this.currentEnemy = null;
     }
     
     charge(owner){
@@ -72,7 +75,9 @@ class WeaponLaser extends Weapon{
             this.projectile.animations.frameName = 'frame02';
             this.projectile.direction = direction;
             this.projectile.scale.x = this.owner.flesh.scale.x;
-            
+            this.projectile.checkWorldBounds = true;
+            this.projectile.outOfBoundsKill = true;
+
             // Lazers start out with a width of 96 and expand over time
             // lazer.crop(new Phaser.Rectangle(244-96, 0, 96, 2), true);
             this.bulletTime = this.game.time.now + 250;
@@ -97,7 +102,27 @@ class WeaponLaser extends Weapon{
         
         projectile.animations.next();
     }
-    
+
+    overlapProjectile(enemy){
+        this.currentEnemy = enemy;
+        this.group.forEachAlive(this.checkOverlap, this);
+    }
+
+    checkOverlap(projectile){
+        if(!this.currentEnemy) return;
+ /*       let projectileBounds = projectile.getBounds();
+        let enemyBounds = this.currentEnemy.flesh.getBounds();
+        if (Phaser.Rectangle.intersects(projectileBounds, enemyBounds)) {
+            this.inflictDamage();
+        }
+ */
+        let hasCollied = this.game.physics.arcade.overlap(this.group, this.currentEnemy.flesh, this.inflictDamage, null, this);
+/*        if(hasCollied){
+            console.log('Going for the kill!');
+            this.inflictDamage();
+        }*/
+    }
+
     update(){
           this.group.forEachAlive(this.updateProjectile, this);
 
@@ -359,11 +384,14 @@ class GameState {
         this.turtle.update();
         for(let i in this.enemies){
             this.enemies[i].update();
-            let overlaped = this.game.physics.arcade.overlap(this.laser.projectile, this.enemies[i].flesh, this.laser.inflictDamage, null, this)
+            this.laser.overlapProjectile(this.enemies[i])
+            //let overlaped = this.game.physics.arcade.overlap(this.laser.projectile, this.enemies[i].flesh, this.laser.inflictDamage, null, this);
+/*
             if(overlaped){
                 console.log('we did');
             }
-        
+*/
+
         }
 //        this.rabbit.update();
 
